@@ -49,7 +49,7 @@ test('inventory item can be updated', function () {
     $this->assertDatabaseHas('inventory_items', [
         'id' => $item->id,
         'name' => 'Laptop Gaming',
-        'stock' => 999,
+        'stock' => 5,
         'price' => 20000000,
     ]);
 });
