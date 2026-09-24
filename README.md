@@ -15,3 +15,4 @@ Repositori ini digunakan untuk memenuhi tugas praktikum mengenai mata kuliah Kon
 - Pipeline otomatisasi GitHub Actions melalui `.github/workflows/ci.yml`.
 - Pipeline terdiri dari empat tahap: **Build, Test, Staging, dan Production**.
 - Deployment Staging dan Production disimulasikan menggunakan `echo`.
+- Dan lain sebagainya untuk dikembangkan.
