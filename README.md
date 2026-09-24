@@ -1,13 +1,17 @@
-# Tugas 2 - Konstruksi & Evolusi Perangkat Lunak
+# Tugas Konstruksi & Evolusi Perangkat Lunak
 
-Repositori ini digunakan untuk memenuhi tugas praktikum Pertemuan 2 mengenai Manajemen GitHub dan Implementasi Prinsip Continuous Integration (CI).
+Repositori ini digunakan untuk memenuhi tugas praktikum mengenai mata kuliah Konstruksi & Evolusi Perangkat Lunak.
 
 ## Identitas
+
 - **Nama:** Aurell Achmad Madina Hartama
 - **NIM:** 543963
 - **Kelas:** AA
 
 ## Fitur Aplikasi
-- Web Sederhana Berbasis Laravel 11 dengan menggunakan Pest Test Framework
-- Fitur Manajemen Inventory CRUD (`InventoryItem`)
-- Pipeline Otomatisasi GitHub Actions (`.github/workflows/ci.yml`) dengan 2 Jobs (Run Tests & Validate Application)
+
+- Web sederhana berbasis Laravel 11 dengan Pest Test Framework.
+- Fitur manajemen Inventory CRUD (`InventoryItem`).
+- Pipeline otomatisasi GitHub Actions melalui `.github/workflows/ci.yml`.
+- Pipeline terdiri dari empat tahap: **Build, Test, Staging, dan Production**.
+- Deployment Staging dan Production disimulasikan menggunakan `echo`.
