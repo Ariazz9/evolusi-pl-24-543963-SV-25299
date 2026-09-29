@@ -13,3 +13,5 @@ Route::get('/inventory', function () {
         InventoryItem::latest()->get()
     );
 });
+
+//test docker cache with some comment
