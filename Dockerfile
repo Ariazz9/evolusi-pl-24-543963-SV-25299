@@ -1,23 +1,14 @@
-# =========================
-# Stage 1: Builder
-# =========================
-FROM php:8.2.29-cli-alpine AS builder
+# ========================================================
+# Stage 1: Builder (Composer Dependencies)
+# ========================================================
+FROM composer:2.8.5 AS builder
 
-WORKDIR /var/www
-
-RUN apk add --no-cache \
-        git \
-        unzip \
-        curl \
-    && docker-php-ext-install pdo_mysql bcmath
-
-# Pin Composer version instead of using the floating "2" tag
-COPY --from=composer:2.8.12 /usr/bin/composer /usr/bin/composer
+WORKDIR /app
 
 # Copy dependency definitions first for Docker layer caching
 COPY composer.json composer.lock ./
 
-# Install production dependencies
+# Install production dependencies without dev tools and scripts
 RUN composer install \
     --no-dev \
     --no-scripts \
@@ -25,53 +16,50 @@ RUN composer install \
     --prefer-dist \
     --optimize-autoloader
 
-# Copy application source after dependencies
+# Copy application source code
 COPY . .
 
 # Generate optimized autoload files
 RUN composer dump-autoload --optimize --no-interaction
 
-## =========================
-# Stage 2: Runtime
-# =========================
-FROM php:8.2.29-cli-alpine AS runtime
+# ========================================================
+# Stage 2: Runtime (FrankenPHP Application Server)
+# ========================================================
+FROM dunglas/frankenphp:1.4-php8.2-alpine AS runtime
 
-# Create non-root user
-RUN addgroup -S laravel && \
-    adduser -S laravel -G laravel && \
-    mkdir -p /var/www && \
-    chown laravel:laravel /var/www
+WORKDIR /app
 
-WORKDIR /var/www
+# Install necessary PHP extensions for Laravel & MySQL
+RUN install-php-extensions pdo_mysql bcmath opcache pcntl
 
-# Runtime only needs curl and the PHP extensions
-# required by the Laravel application.
-RUN apk add --no-cache \
-        curl \
-    && docker-php-ext-install pdo_mysql bcmath
+# Copy application and production dependencies from builder
+COPY --from=builder /app /app
 
-# Copy application and dependencies from builder
-# while assigning ownership directly.
-COPY --from=builder --chown=laravel:laravel /var/www /var/www
+# Copy container entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Use MySQL and file-based drivers inside the container
-ENV DB_CONNECTION=mysql
-ENV DB_HOST=evolusi-pl-mysql
-ENV DB_PORT=3306
-ENV DB_DATABASE=evolusi_pl
-ENV DB_USERNAME=root
-ENV DB_PASSWORD=root
+# Set directory permissions for Laravel writable directories
+RUN mkdir -p /app/storage /app/bootstrap/cache && \
+    chmod -R 775 /app/storage /app/bootstrap/cache
 
-ENV SESSION_DRIVER=file
-ENV CACHE_STORE=file
-ENV QUEUE_CONNECTION=sync
-
-# Run application as a non-root user
-USER laravel
+# Environment variables
+ENV SERVER_NAME=":8000"
+ENV APP_ENV="production"
+ENV APP_DEBUG="false"
+ENV DB_CONNECTION="mysql"
+ENV DB_HOST="db"
+ENV DB_PORT="3306"
+ENV DB_DATABASE="evolusi_pl"
+#ENV DB_USERNAME="root"
+#ENV DB_PASSWORD="rootpassword"
+ENV SESSION_DRIVER="file"
+ENV CACHE_STORE="file"
+ENV QUEUE_CONNECTION="sync"
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://127.0.0.1:8000/ || exit 1
+    CMD curl -f http://127.0.0.1:8000/up || exit 1
 
-CMD ["sh", "-c", "cp .env.example .env && sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=mysql/' .env && sed -i 's/^DB_HOST=.*/DB_HOST=evolusi-pl-mysql/' .env && sed -i 's/^DB_PORT=.*/DB_PORT=3306/' .env && sed -i 's/^DB_DATABASE=.*/DB_DATABASE=evolusi_pl/' .env && sed -i 's/^DB_USERNAME=.*/DB_USERNAME=root/' .env && sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=root/' .env && sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env && sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env && sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=sync/' .env && php artisan key:generate --force && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"]
+ENTRYPOINT ["/entrypoint.sh"]
