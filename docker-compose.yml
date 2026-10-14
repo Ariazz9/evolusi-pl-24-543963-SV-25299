@@ -1,0 +1,96 @@
+services:
+  # -------------------------------------------------------------
+  # 1. Database Service (MySQL)
+  # -------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: evolusi-pl-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_DATABASE:-evolusi_pl}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret123}
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # -------------------------------------------------------------
+  # 2. Backend Service (Laravel 12 + FrankenPHP)
+  # -------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: evolusi-pl-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: "${APP_NAME:-Laravel}"
+      APP_ENV: "${APP_ENV:-production}"
+      APP_KEY: "${APP_KEY:-}"
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_URL: "http://localhost:${FORWARD_BACKEND_PORT:-8000}"
+      
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-evolusi_pl}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret123}
+
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+    ports:
+      - "${FORWARD_BACKEND_PORT:-8000}:8000"
+    volumes:
+      - backend_storage:/app/storage
+    networks:
+      - app-network
+
+  # -------------------------------------------------------------
+  # 3. Frontend Service (Vue.js + Nginx Multi-stage)
+  # -------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "http://localhost:${FORWARD_BACKEND_PORT:-8000}/api"
+    container_name: evolusi-pl-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FORWARD_FRONTEND_PORT:-3000}:80"
+    networks:
+      - app-network
+
+# ---------------------------------------------------------------
+# Named Volumes (Data Persistence)
+# ---------------------------------------------------------------
+volumes:
+  db_data:
+    driver: local
+  backend_storage:
+    driver: local
+
+# ---------------------------------------------------------------
+# Isolated Bridge Network
+# ---------------------------------------------------------------
+networks:
+  app-network:
+    driver: bridge
+
